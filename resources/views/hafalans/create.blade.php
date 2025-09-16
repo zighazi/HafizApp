@@ -31,16 +31,16 @@
               <option
                 value="{{ $sr->id }}"
                 data-max="{{ $sr->jumlah_ayat }}"
-                data-nama="{{ $sr->nama }}"
+                data-nama="{{ $sr->nama_id }}"
                 {{ old('surah_id') == $sr->id ? 'selected' : '' }}
               >
-                {{ $sr->nomor }}. {{ $sr->nama }} ({{ $sr->jumlah_ayat }} ayat)
+                {{ $sr->nomor }}. {{ $sr->nama_id }} ({{ $sr->jumlah_ayat }} ayat)
               </option>
             @endforeach
           </select>
         </div>
 
-        {{-- Rentang Ayat: awal & akhir --}}
+        {{-- Rentang Ayat --}}
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Ayat Awal</label>
@@ -105,11 +105,9 @@
     akhir.setAttribute('min', 1);
     hint.textContent = `Maksimal ayat untuk ${nama}: 1 s.d. ${max}.`;
 
-    // rapikan nilai jika melebihi batas
-    if (awal.value) awal.value  = clamp(awal.value, 1, max);
+    if (awal.value)  awal.value  = clamp(awal.value,  1, max);
     if (akhir.value) akhir.value = clamp(akhir.value, 1, max);
 
-    // otomatis jaga awal ≤ akhir
     if (awal.value && akhir.value && parseInt(awal.value,10) > parseInt(akhir.value,10)) {
       akhir.value = awal.value;
     }
@@ -126,7 +124,7 @@
   awal.addEventListener('input', ensureOrder);
   akhir.addEventListener('input', ensureOrder);
 
-  // init (berguna saat reload karena validation error)
+  // init saat reload (mis. setelah validation error)
   syncConstraints();
 })();
 </script>

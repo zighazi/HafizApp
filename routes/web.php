@@ -22,7 +22,7 @@ Route::get('/santris', fn () => redirect()->route('santris.import.form'))->name(
 /**
  * CRUD Hafalan (Blade)
  */
-Route::resource('hafalans', HafalanController::class);
+Route::resource('hafalans', HafalanController::class)->only(['index','create','store']);
 
 /**
  * Rekap Kelas (index + berbagai export)

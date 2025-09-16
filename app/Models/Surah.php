@@ -6,12 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class Surah extends Model
 {
-    protected $table = 'surahs'; // sesuaikan jika tabelmu bernama 'surah'
-    public $timestamps = false;
+    protected $table = 'surahs';
+    public $timestamps = true;
 
-    protected $fillable = [
-        'nomor',        // 1..114
-        'nama',         // Al-Fatihah, dst.
-        'jumlah_ayat',  // 7, 286, ...
-    ];
+    protected $fillable = ['nomor','nama_id','jumlah_ayat','kategori'];
+
+    public function hafalans()
+    {
+        return $this->hasMany(Hafalan::class, 'surah_id');
+    }
 }

@@ -9,21 +9,18 @@ return new class extends Migration {
     {
         Schema::create('hafalans', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('santri_id')->constrained('santri')->cascadeOnDelete()->cascadeOnUpdate();
-            $table->foreignId('surah_id')->constrained('surahs')->cascadeOnDelete()->cascadeOnUpdate();
 
-            $table->date('tanggal_setor');
-            $table->unsignedSmallInteger('ayat_mulai');
-            $table->unsignedSmallInteger('ayat_selesai');
+            // FK ke tabel santri (nama tabel kamu: 'santri')
+            $table->foreignId('santri_id')->constrained('santri')->cascadeOnDelete();
 
-            $table->enum('metode', ['setoran','murajaah','ziyadah'])->default('setoran');
-            $table->string('penilai_guru', 100)->nullable();
-            $table->text('catatan')->nullable();
+            // FK ke tabel surahs
+            $table->foreignId('surah_id')->constrained('surahs')->cascadeOnDelete();
+
+            $table->unsignedSmallInteger('ayat_awal');
+            $table->unsignedSmallInteger('ayat_akhir');
+            $table->date('tanggal');
 
             $table->timestamps();
-
-            $table->index(['santri_id', 'tanggal_setor'], 'idx_haf_santri_tanggal');
-            $table->index('surah_id');
         });
     }
 
