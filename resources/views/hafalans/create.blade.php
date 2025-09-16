@@ -44,13 +44,13 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Ayat Awal</label>
-            <input type="number" name="ayat_awal" id="ayatAwal" class="form-control"
-                   value="{{ old('ayat_awal') }}" min="1" required placeholder="contoh: 1">
+            <input type="number" name="ayat_mulai" id="ayatMulai" class="form-control"
+                   value="{{ old('ayat_mulai') }}" min="1" required placeholder="contoh: 1">
           </div>
           <div class="col-md-6">
             <label class="form-label">Ayat Akhir</label>
-            <input type="number" name="ayat_akhir" id="ayatAkhir" class="form-control"
-                   value="{{ old('ayat_akhir') }}" min="1" required placeholder="contoh: 7">
+            <input type="number" name="ayat_selesai" id="ayatSelesai" class="form-control"
+                   value="{{ old('ayat_selesai') }}" min="1" required placeholder="contoh: 7">
           </div>
         </div>
         <div class="form-text mb-3" id="ayatHint">
@@ -60,11 +60,27 @@
         {{-- Tanggal Setor --}}
         <div class="mb-3">
           <label class="form-label">Tanggal Setor</label>
-          <input type="date" name="tanggal" class="form-control"
-                 value="{{ old('tanggal', now()->toDateString()) }}" required>
+          <input type="date" name="tanggal_setor" class="form-control"
+                 value="{{ old('tanggal_setor', now()->toDateString()) }}" required>
         </div>
 
-        <div class="d-flex gap-2">
+        {{-- Opsional --}}
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Metode (opsional)</label>
+            <input type="text" name="metode" class="form-control" value="{{ old('metode') }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Penilai (opsional)</label>
+            <input type="text" name="penilai_guru" class="form-control" value="{{ old('penilai_guru') }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Catatan (opsional)</label>
+            <input type="text" name="catatan" class="form-control" value="{{ old('catatan') }}">
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
           <button type="submit" class="btn btn-primary">Simpan</button>
           <a href="{{ route('hafalans.index') }}" class="btn btn-outline-secondary">Batal</a>
         </div>
@@ -77,8 +93,8 @@
 <script>
 (function () {
   const surahSelect = document.getElementById('surahSelect');
-  const awal        = document.getElementById('ayatAwal');
-  const akhir       = document.getElementById('ayatAkhir');
+  const awal        = document.getElementById('ayatMulai');
+  const akhir       = document.getElementById('ayatSelesai');
   const hint        = document.getElementById('ayatHint');
 
   function clamp(value, min, max) {
@@ -124,7 +140,6 @@
   awal.addEventListener('input', ensureOrder);
   akhir.addEventListener('input', ensureOrder);
 
-  // init saat reload (mis. setelah validation error)
   syncConstraints();
 })();
 </script>

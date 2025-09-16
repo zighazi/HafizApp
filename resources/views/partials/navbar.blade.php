@@ -18,6 +18,9 @@
     Beranda
   </a>
 </li>
+
+<li><a class="dropdown-item" href="{{ route('rekap.kelas.bulanan') }}">Rekap Kelas Bulanan</a></li>
+
         {{-- Dropdown Hafalan --}}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {{ request()->routeIs('hafalans.*') || request()->routeIs('rekap.*') || request()->routeIs('rekap-kelas.index') ? 'active' : '' }}"

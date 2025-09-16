@@ -13,6 +13,6 @@ class Surah extends Model
 
     public function hafalans()
     {
-        return $this->hasMany(Hafalan::class, 'surah_id');
+        return $this->hasMany(\App\Models\Hafalan::class, 'surah_id');
     }
 }
