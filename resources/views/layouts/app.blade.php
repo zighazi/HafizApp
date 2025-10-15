@@ -1,52 +1,40 @@
-<!DOCTYPE html>
-<html lang="id">
+<!doctype html>
+<html lang="id" class="h-full"
+      x-data="{dark: localStorage.theme==='dark'}"
+      x-init="$watch('dark', v => {localStorage.theme = v?'dark':'light'; document.documentElement.classList.toggle('dark', v) }); document.documentElement.classList.toggle('dark', localStorage.theme==='dark')">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  @vite(['resources/css/app.css','resources/js/app.js'])
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <title>@yield('title','HafizApp')</title>
-
-  {{-- Bootstrap CSS --}}
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-    crossorigin="anonymous"
-  />
-  <style>.navbar-brand img { height: 36px; width: auto; }</style>
-
-  @stack('styles')
 </head>
-<body>
-  @include('partials.navbar')
+<body class="h-full bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+  <div class="min-h-screen flex">
+    @include('partials.sidebar')
 
-  <main class="container py-4">
-    @if (session('success'))
-      <div class="alert alert-success alert-dismissible fade show" role="alert">
-        {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <main class="flex-1 flex flex-col min-w-0">
+      <header class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+        <div class="font-semibold truncate">@yield('page','Dashboard')</div>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-2 rounded-lg border text-sm border-gray-300 dark:border-gray-700" @click="dark=!dark">
+            <span x-show="!dark">🌙 Dark</span>
+            <span x-show="dark">☀️ Light</span>
+          </button>
+          @auth
+            <a href="{{ route('logout') }}" class="px-3 py-2 rounded-lg border text-sm border-gray-300 dark:border-gray-700"
+               onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
+            <form id="logout-form" method="POST" action="{{ route('logout') }}" class="hidden">@csrf</form>
+          @else
+            <a href="{{ route('login') }}" class="px-3 py-2 rounded-lg border text-sm border-gray-300 dark:border-gray-700">Login</a>
+          @endauth
+        </div>
+      </header>
+
+      <div class="p-4">
+        @yield('content')
       </div>
-    @endif
-
-    @if ($errors->any())
-      <div class="alert alert-danger">
-        <div class="fw-semibold mb-1">Terjadi kesalahan:</div>
-        <ul class="mb-0">
-          @foreach ($errors->all() as $error)
-            <li>{{ $error }}</li>
-          @endforeach
-        </ul>
-      </div>
-    @endif
-
-    @yield('content')
-  </main>
-
-  {{-- Bootstrap JS --}}
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-    crossorigin="anonymous"
-  ></script>
-  @stack('scripts')
+    </main>
+  </div>
 </body>
 </html>

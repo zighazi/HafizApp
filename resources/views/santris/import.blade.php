@@ -2,24 +2,21 @@
 @section('title','Import Santri')
 
 @section('content')
-  <h1 class="h4 mb-3">Import Data Santri</h1>
-
-  <div class="card">
-    <div class="card-body">
-      <form method="POST" action="{{ route('santris.import') }}" enctype="multipart/form-data">
-        @csrf
-
-        <div class="mb-3">
-          <label class="form-label">Pilih File (CSV/TXT/XLSX/XLS)</label>
-          <input type="file" name="file" class="form-control" accept=".csv,.txt,.xlsx,.xls" required>
-          <div class="form-text">Pastikan kolom sesuai skema tabel santri kamu.</div>
-        </div>
-
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary">Upload</button>
-          <a href="{{ route('home') }}" class="btn btn-outline-secondary">Kembali</a>
-        </div>
-      </form>
-    </div>
+<div class="card p-4">
+  <div class="page-head">
+    <h1 class="h5 mb-0">Import Santri</h1>
+    <a href="{{ route('hafalans.index') }}" class="btn btn-outline-secondary">Kembali</a>
   </div>
+  <p class="text-muted mt-2">Unggah file CSV sesuai format yang disiapkan.</p>
+
+  <form class="mt-3" method="POST" action="{{ route('santris.import') }}" enctype="multipart/form-data">
+    @csrf
+    <div class="mb-3">
+      <label class="form-label">File CSV</label>
+      <input type="file" name="file" class="form-control" accept=".csv" required>
+      <div class="form-text">Kolom minimal: <code>nis, nama, kelas, angkatan</code>.</div>
+    </div>
+    <button class="btn btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i> Upload</button>
+  </form>
+</div>
 @endsection

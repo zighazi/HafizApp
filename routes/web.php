@@ -1,64 +1,111 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HafalanController;
-use App\Http\Controllers\RekapKelasController;
-use App\Http\Controllers\SantriImportController;
+use App\Http\Controllers\{
+    HomeController,
+    HafalanController,
+    RekapKelasController,
+    SantriController,
+    ProfileController,
+    ParentDashboardController,
+    UserAdminController, // ⬅️ admin: manajemen user
+};
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-| File ini sengaja dibuat ringkas & anti-bentrok:
-| - Tidak ada group bersarang ganda
-| - Penamaan route konsisten (rekap.kelas, rekap.kelas.bulanan, dst)
-| - Hanya memanggil method controller yang memang tersedia
 */
 
-/** -----------------------------------------------------------------
- *  Beranda (landing page)
- *  Pastikan view resources/views/landing.blade.php tersedia.
- *  -----------------------------------------------------------------*/
-Route::view('/', 'landing')->name('home');
+// ping/healthcheck
+Route::get('/ping', fn () => 'pong');
 
-/** -----------------------------------------------------------------
- *  Hafalan (pakai Nama Santri, Surah, Ayat Awal–Akhir)
- *  Method yang dipakai: index, create, store
- *  -----------------------------------------------------------------*/
-Route::resource('hafalans', HafalanController::class)->only(['index', 'create', 'store']);
+// beranda publik
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
-/** -----------------------------------------------------------------
- *  Import Santri (form + submit)
- *  Pastikan SantriImportController@form & @import ada.
- *  -----------------------------------------------------------------*/
-Route::get('/santris', fn () => redirect()->route('santris.import.form'))->name('santris.index');
-Route::get('/santris/import', [SantriImportController::class, 'form'])->name('santris.import.form');
-Route::post('/santris/import', [SantriImportController::class, 'import'])->name('santris.import');
+// ----- Semua halaman aplikasi (wajib login) -----
+Route::middleware('auth')->group(function () {
 
-/** -----------------------------------------------------------------
- *  Rekap Kelas
- *  - /rekap/kelas                -> index()  (mengarah ke bulanan)
- *  - /rekap/kelas/bulanan        -> bulanan()
- *  - /rekap/kelas/bulanan/export -> exportBulananCsv()
- *  -----------------------------------------------------------------*/
-Route::prefix('rekap')->name('rekap.')->group(function () {
-    Route::get('/kelas', [RekapKelasController::class, 'index'])->name('kelas');
-    Route::get('/kelas/bulanan', [RekapKelasController::class, 'bulanan'])->name('kelas.bulanan');
-    Route::get('/kelas/bulanan/export', [RekapKelasController::class, 'exportBulananCsv'])->name('kelas.bulanan.export');
+    // Redirect dashboard sesuai role
+    Route::get('/dashboard', function () {
+        $u = auth()->user();
+        if ($u && in_array($u->role, ['admin', 'orangtua'])) {
+            return redirect()->route('parent.dashboard');
+        }
+        return redirect()->route('hafalans.index');
+    })->name('dashboard');
 
-    Route::get('/kelas/tahunan', [RekapKelasController::class, 'tahunan'])->name('kelas.tahunan');
-    Route::get('/kelas/tahunan/export', [RekapKelasController::class, 'exportTahunanCsv'])->name('kelas.tahunan.export');
-    Route::get('/kelas/tahunan/print',  [RekapKelasController::class, 'printTahunan'])->name('kelas.tahunan.print');
+    /** ---------------- Hafalan ---------------- */
+    Route::resource('hafalans', HafalanController::class)
+        ->only(['index', 'create', 'store']);
+
+    /** ---------------- Santri (CRUD + Import/Export) ---------------- */
+    Route::resource('santri', SantriController::class);
+    Route::get('santri-export', [SantriController::class,'export'])
+        ->middleware('throttle:30,1')
+        ->name('santri.export');
+    Route::get('santri-import', [SantriController::class,'importForm'])
+        ->name('santri.import.form');
+    Route::post('santri-import', [SantriController::class,'importStore'])
+        ->middleware('throttle:20,1')
+        ->name('santri.import.store');
+
+    // Alias kompatibilitas link lama
+    Route::get('/santris', fn () => redirect()->route('santri.index'))
+        ->name('santris.index');
+
+    /** ---------------- Rekap Kelas ---------------- */
+    Route::prefix('rekap')->name('rekap.')->group(function () {
+        Route::get('/kelas', [RekapKelasController::class, 'index'])->name('kelas');
+
+        // Bulanan
+        Route::get('/kelas/bulanan', [RekapKelasController::class, 'bulanan'])
+            ->name('kelas.bulanan');
+        Route::get('/kelas/bulanan/export', [RekapKelasController::class, 'exportBulananCsv'])
+            ->middleware('throttle:30,1')
+            ->name('kelas.bulanan.export');
+
+        // Tahunan (opsional)
+        Route::get('/kelas/tahunan', [RekapKelasController::class, 'tahunan'])
+            ->name('kelas.tahunan');
+        Route::get('/kelas/tahunan/export', [RekapKelasController::class, 'exportTahunanCsv'])
+            ->middleware('throttle:30,1')
+            ->name('kelas.tahunan.export');
+        Route::get('/kelas/tahunan/print', [RekapKelasController::class, 'printTahunan'])
+            ->name('kelas.tahunan.print');
+    });
+
+    /** ---------------- Dashboard Orangtua ----------------
+     *  Halaman monitor progres hafalan per-santri (ringkasan + grafik)
+     */
+    Route::middleware(['role:admin,orangtua'])->group(function () {
+        Route::get('/dashboard-orangtua', [ParentDashboardController::class, 'index'])
+            ->name('parent.dashboard');
+
+        // Endpoint JSON data grafik 6 bulan terakhir (binding ke kolom NIS)
+        Route::get('/api/orangtua/hafalan/{santri:nis}', [ParentDashboardController::class, 'apiHafalan'])
+            ->middleware('throttle:60,1') // rate-limit API
+            ->name('parent.dashboard.api');
+    });
+
+    /** ---------------- Admin: Manajemen Pengguna ---------------- */
+    Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/users', [UserAdminController::class, 'index'])->name('users.index');
+        Route::get('/users/{user}/edit', [UserAdminController::class, 'edit'])->name('users.edit');
+        Route::patch('/users/{user}', [UserAdminController::class, 'update'])->name('users.update');
+    });
+
+    /** ---------------- Profile ---------------- */
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');                    // nama lama
+    Route::get('/profile-edit', fn () => redirect()->route('profile'))->name('profile.edit');       // alias Breeze
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
-/** -----------------------------------------------------------------
- *  Alias kompatibilitas (kalau ada menu lama)
- *  /rekap-kelas -> rekap.kelas
- *  -----------------------------------------------------------------*/
-Route::get('/rekap-kelas', fn () => redirect()->route('rekap.kelas'))->name('rekap-kelas.index');
 
-/** -----------------------------------------------------------------
- *  Fallback 404 sederhana (opsional; hapus jika punya handler sendiri)
- *  -----------------------------------------------------------------*/
-Route::fallback(function () {
-    return response()->view('errors.404', [], 404);
-});
+// Auth routes (login/register/forgot password, dll.)
+require __DIR__ . '/auth.php';
+
+// (Opsional) 404 fallback yang rapih untuk route tidak dikenal (hanya di production)
+// if (app()->environment('production')) {
+//     Route::fallback(fn () => abort(404));
+// }

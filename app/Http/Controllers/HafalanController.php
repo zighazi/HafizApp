@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use App\Models\Hafalan;
 use App\Models\Santri;
 use App\Models\Surah;
@@ -13,18 +14,16 @@ class HafalanController extends Controller
     /** GET /hafalans */
     public function index(Request $request)
     {
-        // Cek apakah kolom ada di tabel santri
-        $hasKelas    = Schema::hasColumn('santri', 'kelas');
-        $hasAngkatan = Schema::hasColumn('santri', 'angkatan');
+        [$kelasCol, $kelasLabel]       = $this->resolveKelasColumn();
+        [$angkatanCol, $angkatanLabel] = $this->resolveAngkatanColumn();
 
-        $kelas    = $hasKelas    ? $request->query('kelas')    : null;
-        $angkatan = $hasAngkatan ? $request->query('angkatan') : null;
-        $keyword  = $request->query('q');
+        $kelas    = $kelasCol    ? $request->query('kelas')    : null;
+        $angkatan = $angkatanCol ? $request->query('angkatan') : null;
+        $keyword  = trim((string) $request->query('q', ''));
 
-        // compose select untuk eager-load santri sesuai kolom yang tersedia
         $santriSelect = ['id','nama'];
-        if ($hasKelas)    $santriSelect[] = 'kelas';
-        if ($hasAngkatan) $santriSelect[] = 'angkatan';
+        if ($kelasCol)    $santriSelect[] = $kelasCol;
+        if ($angkatanCol) $santriSelect[] = $angkatanCol;
 
         $q = Hafalan::query()
             ->with([
@@ -33,42 +32,37 @@ class HafalanController extends Controller
             ])
             ->latest('tanggal_setor');
 
-        if ($hasKelas && $kelas) {
-            $q->whereHas('santri', fn($s) => $s->where('kelas', $kelas));
+        if ($kelasCol && $kelas) {
+            $q->whereHas('santri', fn($s) => $s->where($kelasCol, $kelas));
         }
-        if ($hasAngkatan && $angkatan) {
-            $q->whereHas('santri', fn($s) => $s->where('angkatan', $angkatan));
+        if ($angkatanCol && $angkatan) {
+            $q->whereHas('santri', fn($s) => $s->where($angkatanCol, $angkatan));
         }
-        if ($keyword) {
-            $q->whereHas('santri', fn($s) => $s->where('nama', 'like', "%{$keyword}%"));
+        if ($keyword !== '') {
+            $q->whereHas('santri', fn($s) => $s->where('nama','like',"%{$keyword}%"));
         }
 
         $hafalans = $q->paginate(15)->appends($request->query());
 
-        // sumber dropdown filter (hanya jika kolomnya ada)
-        $kelasList    = $hasKelas
-            ? Santri::whereNotNull('kelas')->distinct()->orderBy('kelas')->pluck('kelas')
+        $kelasList = $kelasCol
+            ? Santri::whereNotNull($kelasCol)->distinct()->orderBy($kelasCol)->pluck($kelasCol)
             : collect();
-        $angkatanList = $hasAngkatan
-            ? Santri::whereNotNull('angkatan')->distinct()->orderBy('angkatan','desc')->pluck('angkatan')
+        $angkatanList = $angkatanCol
+            ? Santri::whereNotNull($angkatanCol)->distinct()->orderBy($angkatanCol,'desc')->pluck($angkatanCol)
             : collect();
 
-        return view('hafalans.index', [
-            'hafalans'     => $hafalans,
-            'kelasList'    => $kelasList,
-            'angkatanList' => $angkatanList,
-            'kelas'        => $kelas,
-            'angkatan'     => $angkatan,
-            'keyword'      => $keyword,
-            'hasKelas'     => $hasKelas,
-            'hasAngkatan'  => $hasAngkatan,
+        return view('hafalans.index', compact(
+            'hafalans','kelasList','angkatanList','kelas','angkatan','keyword',
+            'kelasCol','angkatanCol','kelasLabel','angkatanLabel'
+        ))->with([
+            'hasKelas'    => (bool) $kelasCol,
+            'hasAngkatan' => (bool) $angkatanCol,
         ]);
     }
 
     /** GET /hafalans/create */
     public function create()
     {
-        // Ambil hanya kolom yang PASTI ada
         $santris = Santri::orderBy('nama')->get(['id','nama']);
         $surahs  = Surah::orderBy('nomor')->get(['id','nomor','nama_id','jumlah_ayat']);
 
@@ -89,25 +83,20 @@ class HafalanController extends Controller
             'metode'        => ['nullable','string','max:50'],
             'penilai_guru'  => ['nullable','string','max:100'],
             'catatan'       => ['nullable','string','max:500'],
-        ], [
-            'ayat_mulai.max'   => "Maksimal ayat untuk {$surah->nama_id} adalah {$surah->jumlah_ayat}.",
-            'ayat_selesai.max' => "Maksimal ayat untuk {$surah->nama_id} adalah {$surah->jumlah_ayat}.",
         ]);
 
         if ((int)$validated['ayat_mulai'] > (int)$validated['ayat_selesai']) {
             return back()->withErrors(['ayat_selesai' => 'Ayat akhir harus ≥ ayat awal.'])->withInput();
         }
 
-        // Cek overlap di tanggal yang sama
-        $overlap = Hafalan::where('santri_id', $validated['santri_id'])
-            ->where('surah_id', $validated['surah_id'])
-            ->whereDate('tanggal_setor', $validated['tanggal_setor'])
-            ->where(function ($q) use ($validated) {
+        $overlap = Hafalan::where('santri_id',$validated['santri_id'])
+            ->where('surah_id',$validated['surah_id'])
+            ->whereDate('tanggal_setor',$validated['tanggal_setor'])
+            ->where(function($q) use ($validated){
                 $a = (int)$validated['ayat_mulai'];
                 $b = (int)$validated['ayat_selesai'];
-                $q->where('ayat_mulai', '<=', $b)->where('ayat_selesai', '>=', $a);
-            })
-            ->exists();
+                $q->where('ayat_mulai','<=',$b)->where('ayat_selesai','>=',$a);
+            })->exists();
 
         if ($overlap) {
             return back()->withErrors([
@@ -116,13 +105,41 @@ class HafalanController extends Controller
             ])->withInput();
         }
 
-        Hafalan::create($validated);
+        try {
+            DB::transaction(fn() => Hafalan::create($validated));
+        } catch (\Throwable $e) {
+            return back()->withInput()->withErrors(['general'=>'Terjadi kesalahan saat menyimpan.']);
+        }
 
         return redirect()->route('hafalans.index')->with('success','Setoran hafalan berhasil disimpan.');
     }
 
-    public function show($id)    { abort(404); }
-    public function edit($id)    { abort(404); }
-    public function update()     { abort(404); }
-    public function destroy()    { abort(404); }
+    public function show($id){ abort(404); }
+    public function edit($id){ abort(404); }
+    public function update(){ abort(404); }
+    public function destroy(){ abort(404); }
+
+    private function resolveKelasColumn(): array
+    {
+        $candidates = ['kelas','kelas_kode','kelas_nama','rombel','kelas_id'];
+        foreach ($candidates as $c) {
+            if (Schema::hasColumn('santri',$c)) {
+                $label = $c === 'rombel' ? 'Rombel' : 'Kelas';
+                return [$c,$label];
+            }
+        }
+        return [null,'Kelas'];
+    }
+
+    private function resolveAngkatanColumn(): array
+    {
+        $candidates = ['angkatan','angkatan_tahun','tahun_masuk'];
+        foreach ($candidates as $c) {
+            if (Schema::hasColumn('santri',$c)) {
+                $label = $c === 'tahun_masuk' ? 'Tahun Masuk' : 'Angkatan';
+                return [$c,$label];
+            }
+        }
+        return [null,'Angkatan'];
+    }
 }

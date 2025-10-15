@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -13,7 +14,7 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
+     * Atribut yang bisa diisi massal.
      *
      * @var list<string>
      */
@@ -21,10 +22,11 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role', // ✅ tambahkan kolom role
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
+     * Atribut yang disembunyikan dari serialisasi.
      *
      * @var list<string>
      */
@@ -34,7 +36,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * Casting atribut ke tipe data tertentu.
      *
      * @return array<string, string>
      */
@@ -44,5 +46,51 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /* ========================================================
+       ==========  ROLE & RELASI ORANGTUA - SANTRI ============
+       ======================================================== */
+
+    /**
+     * Cek apakah user adalah admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Cek apakah user adalah orangtua.
+     */
+    public function isOrangtua(): bool
+    {
+        return $this->role === 'orangtua';
+    }
+
+    /**
+     * Ambil daftar NIS anak (string[]) milik user ini.
+     */
+    public function childNisList(): array
+    {
+        return DB::table('parent_santri')
+            ->where('user_id', $this->id)
+            ->pluck('nis')
+            ->toArray();
+    }
+
+    /**
+     * Relasi many-to-many ke model Santri (opsional, bila mau pakai Eloquent).
+     */
+    public function children()
+    {
+        return $this->belongsToMany(
+            Santri::class,
+            'parent_santri',
+            'user_id',  // FK di pivot
+            'nis',      // kolom yang mengacu ke santri.nis
+            'id',       // PK di users
+            'nis'       // PK di santri
+        );
     }
 }
